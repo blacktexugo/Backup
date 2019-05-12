@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# +-----------------------------------+
+# |             Variaveis             |
+# +-----------------------------------+
+LISTA_ARQUIVOS=     #Nome arquivo
+NOME_PACOTE=backup_$(date +%d-%m-%Y).tar.gz
+CLOUD_SERVER=         #IP
+CLOUD_LOGIN=
+MYSQL_PASS=
+MYSQL_USER=
+DATABASE=
+SQL_FILE=mysqldump_$(date +%d-%m-%Y).sql
+
+fnSucesso(){
+   echo "[ OK ] - $1"
+}
+
+fnErro(){
+   echo "[ERRO] - $1"
+}
+
+fnCompactar(){
+   tar -czf $NOME_PACOTE -T $LISTA_ARQUIVOS > /dev/null 2>&1
+
+   if [ $? -eq 0 ]
+   then
+      fnSucesso "Processo de Compactacao"
+   else
+      fnErro "Processo de Compactacao"
+   fi
+}
+
+fnDump(){
+   mysqldump -u$MYSQL_USER -p$MYSQL_PASS $DATABASE > $SQL_FILE 2> /dev/null
+
+   if [ $? -eq 0 ]
+   then
+      QTDD_LINHAS=$(wc -l $SQL_FILE | awk '{print $1}')
+      fnSucesso "Dump SQL gerado com $QTDD_LINHAS linhas"
+   else
+      fnErro "Dump SQL"
+   fi
+
+}
+
+fnEnvioRemoto(){
+   scp $NOME_PACOTE $CLOUD_LOGIN@$CLOUD_SERVER: > /dev/null 2>&1
+
+   if [ $? -eq 0 ]
+   then
+      TAMANHO=$(du -sh $NOME_PACOTE | awk '{print $1}')
+      fnSucesso "Arquivo $NOME_PACOTE enviado para $CLOUD_SERVER com tamanho de $TAMANHO"
+   else
+      fnErro "Envio remoto para $CLOUD"
+   fi
+
+}
+
+fnChecaIntegridade(){
+   HASH_LOCAL=$(md5sum $NOME_PACOTE | awk '{print $1}')
+   HASH_REMOTO=$(ssh $CLOUD_LOGIN@$CLOUD_SERVER md5sum $NOME_PACOTE | awk '{print $1}')
+
+   if [ $HASH_LOCAL == $HASH_REMOTO ]
+   then
+      fnSucesso "Arquivos integros com hash $HASH_LOCAL"
+   else
+      fnErro "Hashs diferentes, arquivos corrompidos"
+   fi
+
+}
+
+fnDump
+fnCompactar
+fnEnvioRemoto
+fnChecaIntegridade
