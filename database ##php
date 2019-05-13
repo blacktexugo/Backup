@@ -1,0 +1,4 @@
+CREATE DATABASE controle;
+USE controle;
+CREATE TABLE logins (username VARCHAR(50), password VARCHAR (50));
+INSERT INTO logins VALUES ('thiago', '123');
